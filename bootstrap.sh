@@ -227,7 +227,7 @@ done
 # ========================================
 
 if ! [ -e venv ]; then
-  verb python -m venv venv
+  verb python3 -m venv venv
 fi
 
 >&2 echo + source venv/bin/activate
