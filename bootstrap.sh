@@ -15,7 +15,6 @@
 # ----------------------------------------
 
 PLUGIN_NAME="$(basename $(dirname $(realpath $0)))"  # name of current directory
-echo $PLUGIN_NAME
 PLUGIN_TITLE='pl-uae_gen'
 SCRIPT_NAME='uae_gen.py'
 DESCRIPTION='Generate UAE values from the TF images'
@@ -200,7 +199,7 @@ function figlet_wrapper () {
 }
 
 function inject_figleted_title () {
-  python << EOF
+  python3 << EOF
 for line in open('app.py'):
     if line == 'ChRIS Plugin Template Title\n':
         print(r"""$1""")
