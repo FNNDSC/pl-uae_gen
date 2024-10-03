@@ -15,6 +15,7 @@
 # ----------------------------------------
 
 PLUGIN_NAME="$(basename $(dirname $(realpath $0)))"  # name of current directory
+echo $PLUGIN_NAME
 PLUGIN_TITLE='pl-uae_gen'
 SCRIPT_NAME='uae_gen.py'
 DESCRIPTION='Generate UAE values from the TF images'
