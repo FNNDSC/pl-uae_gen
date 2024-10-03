@@ -16,7 +16,7 @@
 
 PLUGIN_NAME="$(basename $(dirname $(realpath $0)))"  # name of current directory
 PLUGIN_TITLE='pl-uae_gen'
-SCRIPT_NAME='uae_gen.py'
+SCRIPT_NAME='uae_gen'
 DESCRIPTION='Generate UAE values from the TF images'
 ORGANIZATION='FNNDSC'
 EMAIL='dev@babyMRI.org'
