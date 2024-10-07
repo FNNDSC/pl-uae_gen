@@ -4,6 +4,8 @@ from pathlib import Path
 from argparse import ArgumentParser, Namespace, ArgumentDefaultsHelpFormatter
 
 from chris_plugin import chris_plugin, PathMapper
+import mat73
+import csv
 
 __version__ = '1.0.0'
 
@@ -25,11 +27,11 @@ parser = ArgumentParser(description='!!!CHANGE ME!!! An example ChRIS plugin whi
                         formatter_class=ArgumentDefaultsHelpFormatter)
 parser.add_argument('-w', '--word', required=True, type=str,
                     help='word to count')
-parser.add_argument('-p', '--pattern', default='**/*.txt', type=str,
+parser.add_argument('-p', '--pattern', default='*0.txt', type=str,
                     help='input file filter glob')
 parser.add_argument('-V', '--version', action='version',
                     version=f'%(prog)s {__version__}')
-
+options = parser.parse_args()
 
 # The main function of this *ChRIS* plugin is denoted by this ``@chris_plugin`` "decorator."
 # Some metadata about the plugin is specified here. There is more metadata specified in setup.py.
@@ -41,7 +43,7 @@ parser.add_argument('-V', '--version', action='version',
     category='',                 # ref. https://chrisstore.co/plugins
     min_memory_limit='100Mi',    # supported units: Mi, Gi
     min_cpu_limit='1000m',       # millicores, e.g. "1000m" = 1 CPU core
-    min_gpu_limit=0              # set min_gpu_limit=1 to enable GPU
+    min_gpu_limit=1              # set min_gpu_limit=1 to enable GPU
 )
 def main(options: Namespace, inputdir: Path, outputdir: Path):
     """
@@ -63,14 +65,13 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
     #
     # Refer to the documentation for more options, examples, and advanced uses e.g.
     # adding a progress bar and parallelism.
-    mapper = PathMapper.file_mapper(inputdir, outputdir, glob=options.pattern, suffix='.count.txt')
+    mapper = PathMapper.file_mapper(inputdir, outputdir, glob=options.pattern)
     for input_file, output_file in mapper:
-        # The code block below is a small and easy example of how to use a ``PathMapper``.
-        # It is recommended that you put your functionality in a helper function, so that
-        # it is more legible and can be unit tested.
-        data = input_file.read_text()
-        frequency = data.count(options.word)
-        output_file.write_text(str(frequency))
+          mat = mat73.loadmat(input_file)  
+          idx = list(mat.shape)
+          with open(output_file, 'a') as f:
+           writer = csv.writer(f)
+           writer.writerow(idx)
 
 
 if __name__ == '__main__':
