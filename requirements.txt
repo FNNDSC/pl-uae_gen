@@ -1,10 +1,10 @@
 chris_plugin==0.4.0
-torch==1.13
-matplotlib==3.4.2
+torch
+matplotlib
 numpy
-mat73==0.59
-scipy==1.10.1
-tqdm==4.66.1
+mat73
+scipy
+tqdm
 numba
 pandas
-argparse==1.1
+argparse
