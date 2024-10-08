@@ -4,8 +4,12 @@ from pathlib import Path
 from argparse import ArgumentParser, Namespace, ArgumentDefaultsHelpFormatter
 
 from chris_plugin import chris_plugin, PathMapper
+import torch
+import numpy as np
 import mat73
-import csv
+from scipy.io import savemat, loadmat
+from tqdm import tqdm
+import os
 
 __version__ = '1.0.0'
 
@@ -32,6 +36,17 @@ parser.add_argument('-p', '--pattern', default='*0.txt', type=str,
 parser.add_argument('-V', '--version', action='version',
                     version=f'%(prog)s {__version__}')
 options = parser.parse_args()
+
+def is_basename(x:str): return os.path.dirname(x) == ""
+
+def uae(f_map):
+    return torch.sum(f_map)/f_map.numel()
+
+def hook_fn(module, input, output):
+    result = uae(output[0])
+    activation_outputs.append(result)
+
+activation_outputs = []
 
 # The main function of this *ChRIS* plugin is denoted by this ``@chris_plugin`` "decorator."
 # Some metadata about the plugin is specified here. There is more metadata specified in setup.py.
@@ -67,11 +82,40 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
     # adding a progress bar and parallelism.
     mapper = PathMapper.file_mapper(inputdir, outputdir, glob=options.pattern)
     for input_file, output_file in mapper:
-          mat = mat73.loadmat(input_file)  
-          idx = list(mat.shape)
-          with open(output_file, 'a') as f:
-           writer = csv.writer(f)
-           writer.writerow(idx)
+        patient_id = os.path.splitext(os.path.basename(input_file))[0]
+        patient_id = patient_id.split_id('_')[0]
+        model = torch.hub.load('pytorch/vision:v0.10.0', 'vgg16', pretrained=True)
+        # print(model)
+        hooks = []
+        activation_outputs = []
+        layers = [2,4,7,9,12,14,16,19,21,23,26,28,30]
+        for layer in layers:
+            hook = model.features[layer].register_forward_hook(hook_fn)
+            hooks.append(hook)
+
+        mat = mat73.loadmat(input_file)
+        mat = mat['tf_images_mat']
+        
+        epochs = mat.shape[0]
+        channels = mat.shape[1]
+        results = np.zeros((epochs,channels,len(layers)))
+        activation_outputs = []
+
+        for epoch in tqdm(range(epochs)):#epochs
+            for channel in range(channels):#channels
+                img = mat[epoch,channel,:,:,:]
+                img = img.reshape(-1,img.shape[2],img.shape[0],img.shape[1])
+                img = torch.tensor(img, dtype=torch.float32)
+                res = model(img)
+                np_activ = np.array([tensor.item() for tensor in activation_outputs])
+                results[epoch,channel,:] = np_activ
+                activation_outputs = []
+        
+        mdic = {"id": patient_id, "uae_vals": results}
+        if is_basename(output_file):
+            output_file = os.path.join(outputdir,output_file)
+        savemat(output_file, mdic)
+        print('Completed: ',patient_id, mat.shape)
 
 
 if __name__ == '__main__':
