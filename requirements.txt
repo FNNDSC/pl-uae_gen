@@ -1,10 +1,6 @@
-chris_plugin==0.4.0
-torch
-matplotlib
+chris_plugin>=0.4.0
 numpy
 mat73
 scipy
 tqdm
-numba
-pandas
 argparse
