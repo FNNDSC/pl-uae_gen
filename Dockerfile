@@ -1,7 +1,7 @@
 # Python version can be changed, e.g.
 # FROM python:3.8
 # FROM ghcr.io/mamba-org/micromamba:1.5.1-focal-cuda-11.3.1
-FROM docker.io/python:3.12.1-slim-bookworm
+FROM pytorch/pytorch:2.4.1-cuda11.8-cudnn9-runtime
 
 LABEL org.opencontainers.image.authors="FNNDSC <dev@babyMRI.org>" \
       org.opencontainers.image.title="pl-uae_gen" \
@@ -19,7 +19,7 @@ RUN apt-get update && \
         python3-opencv \
         libglib2.0-0
 RUN python3 -m pip install --upgrade pip
-RUN pip3 install torch -f https://download.pytorch.org/whl/cu111/torch_stable.html
+# RUN pip3 install torch -f https://download.pytorch.org/whl/cu111/torch_stable.html
 RUN pip install -r requirements.txt
 
 COPY . .
