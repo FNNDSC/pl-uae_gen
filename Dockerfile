@@ -2,6 +2,9 @@
 # FROM python:3.8
 # FROM ghcr.io/mamba-org/micromamba:1.5.1-focal-cuda-11.3.1
 FROM pytorch/pytorch:2.4.1-cuda11.8-cudnn9-runtime
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=America/New_York 
+
 
 LABEL org.opencontainers.image.authors="FNNDSC <dev@babyMRI.org>" \
       org.opencontainers.image.title="pl-uae_gen" \
