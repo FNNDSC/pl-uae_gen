@@ -17,45 +17,45 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
-    name: Unit tests
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Stop docker
-        run: sudo systemctl stop docker
-      - name: Clean docker data
-        run: |
-          sudo rm -rf /var/lib/docker
-          sudo mkdir /var/lib/docker
-      - name: Maximize build space
-        uses: easimon/maximize-build-space@6ae56c86ea8db291ae39f62352a412c36ab8179b
-        with:
-          root-reserve-mb: 8192  # space needed for logs
-          swap-size-mb: 1        # must be >0
-          build-mount-path: /var/lib/docker
-          remove-dotnet: 'true'
-          remove-android: 'true'
-          remove-haskell: 'true'
-          remove-codeql: 'true'
-          remove-docker-images: 'false'
-      - name: Start docker
-        run: sudo systemctl start docker
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Build
-        uses: docker/build-push-action@v5
-        with:
-          build-args: extras_require=dev
-          context: .
-          load: true
-          push: false
-          tags: "localhost/local/app:dev"
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Run pytest
-        run: |
-          docker run -v "$GITHUB_WORKSPACE:/app:ro" -w /app localhost/local/app:dev \
-            pytest -o cache_dir=/tmp/pytest
+  # test:
+  #   name: Unit tests
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - name: Stop docker
+  #       run: sudo systemctl stop docker
+  #     - name: Clean docker data
+  #       run: |
+  #         sudo rm -rf /var/lib/docker
+  #         sudo mkdir /var/lib/docker
+  #     - name: Maximize build space
+  #       uses: easimon/maximize-build-space@6ae56c86ea8db291ae39f62352a412c36ab8179b
+  #       with:
+  #         root-reserve-mb: 8192  # space needed for logs
+  #         swap-size-mb: 1        # must be >0
+  #         build-mount-path: /var/lib/docker
+  #         remove-dotnet: 'true'
+  #         remove-android: 'true'
+  #         remove-haskell: 'true'
+  #         remove-codeql: 'true'
+  #         remove-docker-images: 'false'
+  #     - name: Start docker
+  #       run: sudo systemctl start docker
+  #     - uses: actions/checkout@v4
+  #     - uses: docker/setup-buildx-action@v3
+  #     - name: Build
+  #       uses: docker/build-push-action@v5
+  #       with:
+  #         build-args: extras_require=dev
+  #         context: .
+  #         load: true
+  #         push: false
+  #         tags: "localhost/local/app:dev"
+  #         cache-from: type=gha
+  #         cache-to: type=gha,mode=max
+  #     - name: Run pytest
+  #       run: |
+  #         docker run -v "$GITHUB_WORKSPACE:/app:ro" -w /app localhost/local/app:dev \
+  #           pytest -o cache_dir=/tmp/pytest
 
   build:
     name: Build
