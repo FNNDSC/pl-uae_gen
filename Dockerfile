@@ -14,21 +14,14 @@ ARG SRCDIR=/usr/local/src/pl-uae_gen
 WORKDIR ${SRCDIR}
 
 COPY requirements.txt .
-RUN apt-get update && \
-    apt-get install -y \
-        git \
-        python3-pip \
-        python3-dev \
-        python3-opencv \
-        libglib2.0-0
 RUN python3 -m pip install --upgrade pip
-# RUN pip3 install torch -f https://download.pytorch.org/whl/cu111/torch_stable.html
 RUN pip install -r requirements.txt
 
 COPY . .
 ARG extras_require=none
 RUN pip install ".[${extras_require}]" \
     && cd / && rm -rf ${SRCDIR}
+    
 WORKDIR /
 
 CMD ["uae_gen"]

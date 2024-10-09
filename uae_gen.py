@@ -25,26 +25,12 @@ DISPLAY_TITLE = r"""
 """
 
 
-parser = ArgumentParser(description='!!!CHANGE ME!!! An example ChRIS plugin which '
-                                    'counts the number of occurrences of a given '
-                                    'word in text files.',
+parser = ArgumentParser(description='Find activation energy from multiple layers of VGGNet',
                         formatter_class=ArgumentDefaultsHelpFormatter)
-parser.add_argument('-p', '--pattern', default='*0.txt', type=str,
+parser.add_argument('-p', '--pattern', default='*0.mat', type=str,
                     help='input file filter glob')
 parser.add_argument('-V', '--version', action='version',
                     version=f'%(prog)s {__version__}')
-options = parser.parse_args()
-
-def is_basename(x:str): return os.path.dirname(x) == ""
-
-def uae(f_map):
-    return torch.sum(f_map)/f_map.numel()
-
-def hook_fn(module, input, output):
-    result = uae(output[0])
-    activation_outputs.append(result)
-
-activation_outputs = []
 
 # The main function of this *ChRIS* plugin is denoted by this ``@chris_plugin`` "decorator."
 # Some metadata about the plugin is specified here. There is more metadata specified in setup.py.
@@ -56,7 +42,7 @@ activation_outputs = []
     category='',                 # ref. https://chrisstore.co/plugins
     min_memory_limit='100Mi',    # supported units: Mi, Gi
     min_cpu_limit='1000m',       # millicores, e.g. "1000m" = 1 CPU core
-    min_gpu_limit=1              # set min_gpu_limit=1 to enable GPU
+    min_gpu_limit=0              # set min_gpu_limit=1 to enable GPU
 )
 def main(options: Namespace, inputdir: Path, outputdir: Path):
     """
@@ -80,8 +66,20 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
     # adding a progress bar and parallelism.
     mapper = PathMapper.file_mapper(inputdir, outputdir, glob=options.pattern)
     for input_file, output_file in mapper:
+        def is_basename(x:str): return os.path.dirname(x) == ""
+
+        def uae(f_map):
+            return torch.sum(f_map)/f_map.numel()
+
+        def hook_fn(module, input, output):
+            result = uae(output[0])
+            activation_outputs.append(result)
+
+        activation_outputs = []
+
         patient_id = os.path.splitext(os.path.basename(input_file))[0]
-        patient_id = patient_id.split_id('_')[0]
+        print(patient_id)
+        patient_id = patient_id.split('_')[0]
         model = torch.hub.load('pytorch/vision:v0.10.0', 'vgg16', pretrained=True)
         # print(model)
         hooks = []
@@ -90,6 +88,17 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
         for layer in layers:
             hook = model.features[layer].register_forward_hook(hook_fn)
             hooks.append(hook)
+
+        device = (
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps"
+            if torch.backends.mps.is_available()
+            else "cpu"
+        )
+        print(f"Using {device} device")
+
+        model = model.to(device)
 
         mat = mat73.loadmat(input_file)
         mat = mat['tf_images_mat']
@@ -104,6 +113,7 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
                 img = mat[epoch,channel,:,:,:]
                 img = img.reshape(-1,img.shape[2],img.shape[0],img.shape[1])
                 img = torch.tensor(img, dtype=torch.float32)
+                img = img.to(device)
                 res = model(img)
                 np_activ = np.array([tensor.item() for tensor in activation_outputs])
                 results[epoch,channel,:] = np_activ
