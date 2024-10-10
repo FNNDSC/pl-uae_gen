@@ -27,7 +27,7 @@ DISPLAY_TITLE = r"""
 
 parser = ArgumentParser(description='Find activation energy from multiple layers of VGGNet',
                         formatter_class=ArgumentDefaultsHelpFormatter)
-parser.add_argument('-p', '--pattern', default='*0.mat', type=str,
+parser.add_argument('-p', '--pattern', default='*.mat', type=str,
                     help='input file filter glob')
 parser.add_argument('-V', '--version', action='version',
                     version=f'%(prog)s {__version__}')
@@ -42,7 +42,7 @@ parser.add_argument('-V', '--version', action='version',
     category='',                 # ref. https://chrisstore.co/plugins
     min_memory_limit='100Mi',    # supported units: Mi, Gi
     min_cpu_limit='1000m',       # millicores, e.g. "1000m" = 1 CPU core
-    min_gpu_limit=0              # set min_gpu_limit=1 to enable GPU
+    min_gpu_limit=1              # set min_gpu_limit=1 to enable GPU
 )
 def main(options: Namespace, inputdir: Path, outputdir: Path):
     """
@@ -114,7 +114,8 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
                 img = img.reshape(-1,img.shape[2],img.shape[0],img.shape[1])
                 img = torch.tensor(img, dtype=torch.float32)
                 img = img.to(device)
-                res = model(img)
+                with torch.no_grad():
+                    res = model(img)
                 np_activ = np.array([tensor.item() for tensor in activation_outputs])
                 results[epoch,channel,:] = np_activ
                 activation_outputs = []
