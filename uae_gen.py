@@ -11,6 +11,7 @@ from scipy.io import savemat, loadmat
 from tqdm import tqdm
 import os
 import re
+import time
 
 __version__ = '1.0.2'
 
@@ -55,7 +56,7 @@ activation_outputs = []
     category='',                 # ref. https://chrisstore.co/plugins
     min_memory_limit='100Mi',    # supported units: Mi, Gi
     min_cpu_limit='1000m',       # millicores, e.g. "1000m" = 1 CPU core
-    min_gpu_limit=0              # set min_gpu_limit=1 to enable GPU
+    min_gpu_limit=1              # set min_gpu_limit=1 to enable GPU
 )
 def main(options: Namespace, inputdir: Path, outputdir: Path):
     """
@@ -79,60 +80,71 @@ def main(options: Namespace, inputdir: Path, outputdir: Path):
     # adding a progress bar and parallelism.
     mapper = PathMapper.file_mapper(inputdir, outputdir, glob=options.pattern)
     for input_file, output_file in mapper:
-        global activation_outputs
+        time_start = time.time()
 
         patient_id = os.path.splitext(os.path.basename(input_file))[0]
         patient_id = patient_id.split('_')[0]
 
-        model = torch.hub.load('pytorch/vision:v0.10.0', 'vgg16', pretrained=True)
-        # print(model)
-        hooks = []
-        activation_outputs = []
+        output_path = Path(output_file)
+        if not output_path.exists():
+            global activation_outputs
+
+            model = torch.hub.load('pytorch/vision:v0.10.0', 'vgg16', pretrained=True)
+            # print(model)
+            hooks = []
+            activation_outputs = []
+            
+            layers = [2,4,7,9,12,14,16,19,21,23,26,28,30]
+            layers_1 = [i-1 for i in layers]
+            for layer in layers_1:
+                hook = model.features[layer].register_forward_hook(hook_fn)
+                hooks.append(hook)
+
+            device = (
+                "cuda"
+                if torch.cuda.is_available()
+                else "mps"
+                if torch.backends.mps.is_available()
+                else "cpu"
+            )
+            print(f"Using {device} device")
+                                                            
+            model = model.to(device)
+
+            mat = mat73.loadmat(input_file)
+            mat_keys= mat.keys()
+            var_pattern = re.compile(r'^tf_image')
+            var_matches = [item for item in mat_keys if var_pattern.match(item)]
+            mat = mat[var_matches[0]]
+            print('Started: ',patient_id, mat.shape)
+
+            epochs = mat.shape[0]
+            channels = mat.shape[1]
+            results = np.zeros((epochs,channels,len(layers)))
+            activation_outputs = []
+
+            for epoch in tqdm(range(epochs)):#epochs
+                for channel in range(channels):#channels
+                    img = mat[epoch,channel,:,:,:]
+                    img = img.reshape(-1,img.shape[2],img.shape[0],img.shape[1])
+                    img = torch.tensor(img, dtype=torch.float32)
+                    img = img.to(device)
+                    with torch.no_grad():
+                        res = model(img)
+                    np_activ = np.array([tensor.item() for tensor in activation_outputs])
+                    results[epoch,channel,:] = np_activ
+                    activation_outputs = []
+            
+            mdic = {"id": patient_id, "uae_vals": results}
+
+            savemat(output_file, mdic)
+            del mat
+            time_end = time.time()
+            print('Completed: ',patient_id, results.shape, time_end-time_start)
+        else:
+            print('Completed previously',input_file)
         
-        layers = [2,4,7,9,12,14,16,19,21,23,26,28,30]
-        for layer in layers:
-            hook = model.features[layer].register_forward_hook(hook_fn)
-            hooks.append(hook)
-
-        device = (
-            "cuda"
-            if torch.cuda.is_available()
-            else "mps"
-            if torch.backends.mps.is_available()
-            else "cpu"
-        )
-        print(f"Using {device} device")
-
-        model = model.to(device)
-
-        mat = mat73.loadmat(input_file)
-        mat_keys= mat.keys()
-        var_pattern = re.compile(r'^tf_image')
-        var_matches = [item for item in mat_keys if var_pattern.match(item)]
-        mat = mat[var_matches[0]]
         
-        epochs = mat.shape[0]
-        channels = mat.shape[1]
-        results = np.zeros((epochs,channels,len(layers)))
-        activation_outputs = []
-
-        for epoch in tqdm(range(epochs)):#epochs
-            for channel in range(channels):#channels
-                img = mat[epoch,channel,:,:,:]
-                img = img.reshape(-1,img.shape[2],img.shape[0],img.shape[1])
-                img = torch.tensor(img, dtype=torch.float32)
-                img = img.to(device)
-                with torch.no_grad():
-                    res = model(img)
-                np_activ = np.array([tensor.item() for tensor in activation_outputs])
-                results[epoch,channel,:] = np_activ
-                activation_outputs = []
-        
-        mdic = {"id": patient_id, "uae_vals": results}
-        if is_basename(output_file):
-            output_file = os.path.join(outputdir,output_file)
-        savemat(output_file, mdic)
-        print('Completed: ',patient_id, mat.shape)
 
 
 if __name__ == '__main__':
